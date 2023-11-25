@@ -1,21 +1,29 @@
-import soundfile as sf
+import warnings
 from pprint import pprint
 import wavfile_fixed as wavfile
 import mido
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 
+warnings.filterwarnings("ignore", message="Chunk b'JUNK' skipped", category=UserWarning)
+warnings.filterwarnings("ignore", message="Chunk b'LGWV' skipped", category=UserWarning)
+warnings.filterwarnings("ignore", message="Chunk b'ResU' skipped", category=UserWarning)
+warnings.filterwarnings("ignore", message="Chunk b'bext' skipped", category=UserWarning)
+
+
 def get_tempo_values(file):
     test = wavfile.read(file, readmarkers=True, readmarkerlabels=True, readmarkerslist=False, readloops=False,
                         readpitch=False, normalized=False, forcestereo=False)
-
     tempo_items = [item for item in test[4] if item.startswith(b'Tempo: ')]
     tempo_values = [float(item.decode('utf-8').split(': ')[1]) for item in tempo_items]
+
     return tempo_values
+
 
 def get_tempo_positions(file):
     test = wavfile.read(file, readmarkers=True, readmarkerlabels=True, readmarkerslist=False, readloops=False,
                         readpitch=False, normalized=False, forcestereo=False)
+
     return test[3]
 
 
@@ -23,13 +31,10 @@ def create_tempo_map_midi(positions, tempos, output_midi_file='tempo_map.mid'):
     midi = MidiFile()
     track = MidiTrack()
     midi.tracks.append(track)
-
-    ticks_per_beat = 480  # Adjust as needed
+    ticks_per_beat = 480
     sample_rate = 44100  # Adjust according to the sample rate of your audio file
-
     # Calculate ticks per second based on the initial tempo and sample rate
     ticks_per_second = ticks_per_beat * tempos[0] / 60
-
     # Add tempo events to the MIDI track
     for position, tempo in zip(positions, tempos):
         microseconds_per_beat = int(60_000_000 / tempo)
@@ -54,7 +59,6 @@ if __name__ == "__main__":
     tempo_values = get_tempo_values(file_path)
     pos_values = get_tempo_positions(file_path)
     create_tempo_map_midi(pos_values, tempo_values)
-
     print(tempo_values)
     print(pos_values)
 
