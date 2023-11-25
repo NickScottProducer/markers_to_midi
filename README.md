@@ -1,3 +1,6 @@
+Takes audio files (currently only wav files), strips any tempo information stored in metadata, then writes that information to a midi file to create a tempo map, usable in all DAWs.
+
+
 Dependencies:
 
 
