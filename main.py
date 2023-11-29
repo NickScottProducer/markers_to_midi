@@ -24,34 +24,36 @@ def get_tempo_positions(file):
     test = wavfile.read(file, readmarkers=True, readmarkerlabels=True, readmarkerslist=False, readloops=False,
                         readpitch=False, normalized=False, forcestereo=False)
 
-    return test[3]
+    # Filter positions to include only tempo markers
+    tempo_positions = [pos for pos, marker in zip(test[3], test[4]) if marker.startswith(b'Tempo: ')]
+
+    return tempo_positions
 
 
-def create_tempo_map_midi(positions, tempos, output_midi_file='tempo_map.mid'):
+def create_tempo_map_midi(positions, tempos, sample_rate=44100, output_midi_file='tempo_map.mid'):
     midi = MidiFile()
     track = MidiTrack()
     midi.tracks.append(track)
     ticks_per_beat = 480
-    sample_rate = 44100  # Adjust according to the sample rate of your audio file
-    # Calculate ticks per second based on the initial tempo and sample rate
-    ticks_per_second = ticks_per_beat * tempos[0] / 60
-    # Add tempo events to the MIDI track
+
+    current_ticks = 0  # Track the cumulative ticks
+
     for position, tempo in zip(positions, tempos):
-        microseconds_per_beat = int(60_000_000 / tempo)
-        # Convert position to time in seconds
+        bpm_to_microseconds = mido.bpm2tempo(tempo)
         time_seconds = position / sample_rate
-        # Convert time to ticks
-        time_ticks = int(time_seconds)
-        # Use 'set_tempo' message for tempo changes
-        track.append(MetaMessage('set_tempo', tempo=microseconds_per_beat, time=time_ticks))
+        time_ticks = int(mido.second2tick(time_seconds, ticks_per_beat, bpm_to_microseconds))
+        # Ensure that the calculated time_ticks is non-negative
+        delta_ticks = max(0, time_ticks - current_ticks)
+        #delta_ticks = tempo * time_ticks / ticks_per_beat
+        # Add the tempo change event to the track
+        track.append(MetaMessage('set_tempo', tempo=(int(bpm_to_microseconds)), time=delta_ticks))
 
-    # Set the end time of the last tempo event as the end time of the MIDI file
-    end_time_ticks = int(positions[-1] / sample_rate * ticks_per_second)
-    track.append(Message('note_on', note=60, velocity=64, time=end_time_ticks))
-    track.append(Message('note_off', note=60, velocity=64, time=100))  # Add a short note-off event
 
-    # Save MIDI file
-    midi.save(output_midi_file)
+        # Update current_ticks
+        current_ticks = time_ticks
+
+    # Save the MIDI file
+    midi.save('tempo_changes.mid')
 
 
 if __name__ == "__main__":
@@ -59,6 +61,5 @@ if __name__ == "__main__":
     tempo_values = get_tempo_values(file_path)
     pos_values = get_tempo_positions(file_path)
     create_tempo_map_midi(pos_values, tempo_values)
-    print(tempo_values)
-    print(pos_values)
-
+    #print (tempo_values)
+    #print (pos_values)
